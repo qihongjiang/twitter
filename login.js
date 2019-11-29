@@ -18,10 +18,7 @@ var autoIncrement = require("mongodb-autoincrement");
 var url = "mongodb://localhost:27017/";
 
 var cassandra = require('cassandra-driver');
-var client = new cassandra.Client({contactPoints: ['127.0.0.1']});
-client.connect(function(err,result){
-	console.log('cassandra connected');
-})
+var client = new cassandra.Client({contactPoints: ['127.0.0.1'], localDataCenter: 'datacenter1'});
 
 const TWO_HOURS = 1000 * 60 * 60 * 2;
 
@@ -130,30 +127,121 @@ app.post('/additem', function(req,res){
 	let parentId = req.body.parent;
 	if(!parentId){parentId = "";}
 	let mediaId = req.body.media;
-	if(req.session.userId){
-		MongoClient.connect(url, function(err, db){
-			if(err)throw err;
-			var dbo = db.db("warmup");
-			var user = req.session.userId;
-			var time = Math.floor(new Date());
-			autoIncrement.getNextSequence(dbo, "items", function(err, autoIndex){
-				var doc = {index: autoIndex, content: content, username: user, timestamp: time};
-				if(!content){
-                			res.json({status: "error"});
-        			}	
-				else{		
-					dbo.collection("items").insertOne(doc, function(err,result){
-						if(err)throw err;
-						var value = autoIndex.toString();
-						res.json({status:"OK", id:value});
-					})
+	var id = mediaId;
+
+	console.log('-----------------------------');	
+	console.log("User " + req.session.userId + " request for "+mediaId+ " with length "+id.length);
+	if(mediaId){
+		client.connect(function(err,result){
+                        console.log('additem request cassandra');
+                })
+		
+		console.log(mediaId);
+		console.log(JSON.parse(id[0]));
+		console.log(typeof mediaId)
+		console.log(typeof id[0])
+		var i = 0;
+		var query;
+		if(id.length==2){
+			queries = [
+			{
+				query: 'SELECT used FROM tweet.twit WHERE tid = ?',
+				params: id[0]
+			},
+			{
+				query: 'SELECT used FROM tweet.twit WHERE tid = ?',
+                                params: id[1]
+			}
+			];
+		}
+		else{
+			queries = [
+			{
+				query: 'SELECT used FROM tweet.twit WHERE tid = ?',
+				params: id[0]
+			}
+			];
+		}
+		query = 'SELECT used FROM tweet.twit WHERE tid = ?';	
+		client.execute(query, [id[0]], function(err, result){
+			console.log(result);
+			i++;
+			if(typeof result!=='undefined'&&result){
+				if(result.rows[0].used==='t'){
+					console.log('In Use');
+					res.status(400).json({status: "error", error: "Mismatch user and req"});
 				}
-				db.close();	
-			})
-		})
+				else if(req.session.userId){
+					console.log("Succeed");
+                			MongoClient.connect(url, function(err, db){
+                        			if(err)throw err;
+                        			var dbo = db.db("warmup");
+                        			var user = req.session.userId;
+                        			var time = Math.floor(new Date()); 
+                        			autoIncrement.getNextSequence(dbo, "items", function(err, autoIndex){
+                                			var doc = {index: autoIndex, content: content, username: user, timestamp: time};
+                                			if(!content){
+                                        			res.json({status: "error"});
+                                			}               
+                                			else{
+                                        			updateCassandra();
+								dbo.collection("items").insertOne(doc, function(err,result){
+                                                			if(err)throw err;
+                                                			var value = autoIndex.toString();
+                                                			res.json({status:"OK", id:value});
+                                        			})
+                                			}
+                                			db.close();
+                        			})
+               				})
+        			}
+        			else{
+        	        		console.log('Error');
+					res.json({status: "error"});
+        			}
+			}
+			else{
+				console.log("File Not Uploaded");
+                                res.status(400).json({status: "error", error: "file not uploaded"});
+			}
+		});
+	}
+	else if(req.session.userId){
+		insertMongo();
 	}
 	else{
 		res.json({status: "error"});
+	}
+
+	async function updateCassandra(){
+		var test='t';
+                query = 'UPDATE tweet.twit SET used = ?  WHERE tid = ?';
+		params = [test, id[0]];
+		console.log(id);
+		client.execute(query, params).then(result => console.log('Row updated on the cluster'));
+	}
+	async function insertMongo(){
+		MongoClient.connect(url, function(err, db){
+                        if(err)throw err;
+                        var dbo = db.db("warmup");
+                        var user = req.session.userId;
+                        var time = Math.floor(new Date());
+                        autoIncrement.getNextSequence(dbo, "items", function(err, autoIndex){
+                                var doc = {index: autoIndex, content: content, username: user, timestamp: time};
+                                if(!content){
+                                        res.json({status: "error"});
+                                }
+                                else{
+                                        dbo.collection("items").insertOne(doc, function(err,result){
+                                                if(err)throw err;
+                                                var value = autoIndex.toString();
+                                                res.json({status:"OK", id:value});
+                                        })
+                                }
+                                db.close();
+                        })
+                })
+
 	}
 });
 app.get('/follow', function(req,res){
@@ -343,14 +431,32 @@ app.delete('/item/:id', function(req, res){
         });
 });
 
+app.get('/media/:id', function(req,res){
+	console.log('Attempt to retrieve media');
+	res.end('OK');
+})
+
 app.post('/addmedia', function(req,res){
-	if(req.session.id){
-		var content = req.body.content;
-		var id = uuidv4();
-					
-	}
+	if(req.session.userId){
+		let content = req.body.content;
+		let Uuid = cassandra.types.Uuid;
+		let id = Uuid.random();
+	
+		id = JSON.stringify(id);
+	
+		let query = 'INSERT INTO tweet.twit (tid, content, tname, used) VALUES (?, ?, ?, ?)';
+		let params = [ id, content, req.session.userId, 'f' ];
+		console.log(id);
+		client.connect(function(err,result){
+		})
+		client.execute(query, params, function(err, result){
+			if(err)throw err;
+			res.json({status: "OK", id:id});
+		});
+	}	
 	else{
-		res.status(400).json({status: "error"});
+		console.log("login required");
+		res.status(400).json({status: "error", error: "login required"});
 	}
 })
 
