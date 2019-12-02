@@ -44,13 +44,17 @@ app.post('', function(req, res){
 		if(err)throw err;
                 var dbo = db.db("warmup");
                 var doc = {username: user, password: pw, email: email, stat: "F", followers: [], following: []};
-                dbo.collection("users").insertOne(doc, function(err,res){
-                	if(err)throw err;
-			db.close();
-                });
+                dbo.collection("users").findOne({username:user}, function(err,result){
+			if(result){
+				res.status(400).json({status: "error", error: "user already registered"});
+			}
+			else{
+				dbo.collection("users").insertOne(doc);
+				res.json({status: "OK"});
+			}
+		});
         });
 	
-	res.end(JSON.stringify({ status: "OK" }));	
 });
 
 app.listen(8081);

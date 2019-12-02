@@ -28,12 +28,14 @@ app.get('/:id', function(req, res){
 				var idn = num.toString();
 				var user = result.username;
 				var time = result.timestamp;
+				var retweet = parseInt(result.retweet,10);
+				console.log(retweet);
 				var property = {likes: 0};
 				var item = {
 					id: idn, 
 					username: user, 
 					property: property,
-					retweeted: 0,
+					retweeted: retweet,
 					content: body,
 					timestamp: time
 				}

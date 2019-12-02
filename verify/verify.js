@@ -23,23 +23,18 @@ app.post('', function(req, res){
                 if(err)throw err;
 		var dbo = db.db("warmup");
 		dbo.collection("users").findOne({email: email}, function(err,result){
-			if (err){
-				throw err;
-				res.json({status: "error"});
-			}
-			if((key==="keykey"&&result.stat==="F")||key==="abracadabra"){
-				dbo.collection("users").updateOne({email:email}, {$set: {"stat": "T"}}, function(err, rest){
-				if(err){
-					throw err;
-					res.json({status: "error"});
+			if (err) throw err;
+			if(result){
+				if((key==="keykey"&&result.stat==="F")||key==="abracadabra"){
+					dbo.collection("users").updateOne({email:email}, {$set: {"stat": "T"}});
+					res.status(200).json({status: "OK"});
 				}
 				else{
-					res.json({status: "OK"});
+					res.status(400).json({status: "error", error: "Incorrect Verification Key"});
 				}
-				});
 			}
 			else{
-				res.json({status: "error"});
+				res.status(400).json({status: "error", error: "User never registered"});
 			}
 			db.close();
 		});

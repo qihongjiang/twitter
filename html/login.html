@@ -1,16 +1,23 @@
+<html>
 <head>
         <link rel="stylesheet" type="text/css" href="css/anime.css">
 </head>
 <body>
 <div class="topnav">
-        <a href='login.html'>Login</a>
-        <a href='index.html'>Home</a>
+	<img src="loga.png" alt="logo ya">
+        <a href='/login'>Login</a>
+        <a href='/adduser'>Register</a>
+        <a href='/home'>Home</a>
+        <a href='/verify'>Verify</a>
+        <a href='/search'>Search</a>
 </div>
-<h1>Login</h1>
-<form method = 'post' action = '/login'>
-	<input type = 'text' name='username'>
-	<input type = 'password' name='password'>
-	<input type = 'submit' value="submit">
-</form>
-<a href='/adduser'>Register</a>
+  <div class="box">
+    <h2 class="black">Login</h2>
+    <form method = 'post' action = '/login'>
+      <input type = 'text' name='username' placeholder="Username"><br />
+      <input type = 'password' name='password' placeholder="Password"><br />
+      <input type = 'submit' value="submit"><br />
+    </form>
+  </div>
 </body>
+</html>
