@@ -20,17 +20,19 @@ app.get('/:username', function(req, res){
 			if(err) throw err;
 			console.log("User Profile: " + username);
 			console.log(result);
+			
 			if(result){
 				var email = result.email;
 				var username = result.username
 				var followers = result.followers.length;
 				var following = result.following.length;
-				//res.json({status: "OK", user:{email:email, followers:followers, following: following}});
-				res.render("user.ejs", {status: "OK", username:username, email:email, followers:followers, following: following});
+				res.status(200).json({status: "OK", user:{email:email, followers:followers, following: following}});
+				//res.render("user.ejs", {status: "OK", username:username, email:email, followers:followers, following: following});
 			}
 			else{
-				res.json({status: "error"});
+				res.status(400).json({status: "error", error: "result not found"});
 			}
+			db.close();
 		});
 	});	
 });

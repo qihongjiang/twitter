@@ -52,6 +52,7 @@ app.post('', function(req, res){
 				dbo.collection("users").insertOne(doc);
 				res.json({status: "OK"});
 			}
+		db.close()
 		});
         });
 	

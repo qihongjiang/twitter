@@ -1,10 +1,10 @@
-var express = require('express');
-var bodyParser = require('body-parser');
-var session = require('express-session');
-var fs = require('fs');
-var uuid = require('uuid/v4');
+const express = require('express');
+const bodyParser = require('body-parser');
+const session = require('express-session');
+const fs = require('fs');
+const uuid = require('uuid/v4');
 
-var ejs = require('ejs');
+const ejs = require('ejs');
 
 var app = express();
 app.use(bodyParser.urlencoded({ extended:true }));
@@ -13,13 +13,19 @@ app.use(bodyParser.json());
 app.use(express.static('css'));
 app.use(express.static('images'));
 
-var MongoClient = require('mongodb').MongoClient;
-var autoIncrement = require("mongodb-autoincrement");
-var url = "mongodb://localhost:27017/";
+const MongoClient = require('mongodb').MongoClient;
+const autoIncrement = require("mongodb-autoincrement");
+var url = "mongodb://127.0.0.1:27017/";
 
-var cassandra = require('cassandra-driver');
-var client = new cassandra.Client({contactPoints: ['127.0.0.1'], localDataCenter: 'datacenter1'});
+// Cassandra set-up
+const cassandra = require('cassandra-driver');
+const client = new cassandra.Client({contactPoints: ['127.0.0.1'], localDataCenter: 'datacenter1'});
 
+// Mem-cache
+const redis = require('redis');
+const redisClient = redis.createClient();
+
+// Constants/functions
 const TWO_HOURS = 1000 * 60 * 60 * 2;
 
 const{
@@ -93,10 +99,14 @@ app.post('/login', redirectHome, function(req, res){
                                 	req.session.userId = result.username;
 					res.json({status: "OK"});
                         	}
+				else{
+					console.log("password not matching");
+	                                res.status(400).json({status: "error", error: "password not matching"});
+				}
 			}
 			else{
-				console.log("password not matching");
-				res.status(400).json({status: "error", error: "password not matching"});
+				console.log("user not found");
+				res.status(400).json({status: "error", error: "user not found"});
 			}
                         db.close();
                 });
@@ -206,7 +216,7 @@ app.post('/additem', function(req,res){
 	}
 
 	async function insertMongo(){
-		MongoClient.connect(url, function(err, db){
+		MongoClient.connect(url, { useNewUrlParser: true }, function(err, db){
                         if(err)throw err;
                         var dbo = db.db("warmup");
                         var user = req.session.userId;
@@ -241,6 +251,7 @@ app.post('/additem', function(req,res){
 								if(err) throw err;
 								console.log("1 document updated: " + parentId);
 							})
+							db.close()
 						})
 					}
                                 }
@@ -459,7 +470,7 @@ app.post('/item/:id/like', function(req,res){
 	var num = parseInt(req.params.id, 10);
 	var like = req.body.like;
 	console.log(req.session.userId + " liked item#" + num + " liked " + like)
-	MongoClient.connect(url, function(err, db){
+	MongoClient.connect(url, { useNewUrlParser: true }, function(err, db){
 		if(err)throw err;
                 var dbo = db.db("warmup");
 		dbo.collection("items").findOne({index: num}, function(err,result){
